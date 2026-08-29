@@ -1,0 +1,13 @@
+{
+  "name": "node-vulnerable-fixture",
+  "version": "1.0.0",
+  "description": "Demo fixture with pinned vulnerable packages for SentinelPR verification",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "lodash": "4.17.15",
+    "minimist": "1.2.0"
+  }
+}
