@@ -129,8 +129,22 @@ class OSVClient:
             logger.error(f"Error querying OSV for {package_name}: {e}")
             raise
 
+    def get_vulnerability_by_id(self, vuln_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch full vulnerability details by OSV ID."""
+        url = f"{self.api_base}/vulns/{vuln_id}"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "SentinelPR-Orchestrator"}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except Exception as e:
+            logger.debug(f"Could not fetch vuln {vuln_id}: {e}")
+            return None
+
     def batch_check(self, dependencies: List[Dict[str, str]]) -> List[PackageScanResult]:
-        """Batch query multiple dependencies."""
+        """Batch query multiple dependencies with full vulnerability enrichment."""
         if not dependencies:
             return []
 
@@ -161,8 +175,21 @@ class OSVClient:
             for idx, item in enumerate(results_data):
                 input_dep = dependencies[idx]
                 raw_vulns = item.get("vulns", [])
-                vulns = [self._format_vuln(v) for v in raw_vulns]
+                
+                # If package has vulnerabilities, query single package for complete details
+                if raw_vulns:
+                    try:
+                        full_res = self.check_package(
+                            package_name=input_dep.get("name") or input_dep.get("package_name", ""),
+                            ecosystem=input_dep.get("ecosystem", "PyPI"),
+                            version=input_dep.get("version")
+                        )
+                        results.append(full_res)
+                        continue
+                    except Exception:
+                        pass
 
+                vulns = [self._format_vuln(v) for v in raw_vulns]
                 all_fixed = [fv for v in vulns for fv in v.fixed_versions if fv]
                 target_fix = all_fixed[-1] if all_fixed else None
 

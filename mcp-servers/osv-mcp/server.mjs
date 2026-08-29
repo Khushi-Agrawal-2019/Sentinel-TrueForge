@@ -159,9 +159,24 @@ export async function batchCheck({ dependencies }) {
   const batchResults = data.results || [];
 
   let totalVulns = 0;
-  const processed = batchResults.map((item, idx) => {
+  const processed = await Promise.all(batchResults.map(async (item, idx) => {
     const inputDep = dependencies[idx];
     const rawVulns = item.vulns || [];
+    
+    if (rawVulns.length > 0) {
+      try {
+        const full = await checkVulnerabilities({
+          package_name: inputDep.name || inputDep.package_name,
+          ecosystem: inputDep.ecosystem || "PyPI",
+          version: inputDep.version
+        });
+        totalVulns += full.vulnerability_count;
+        return full;
+      } catch (err) {
+        // Fallback to basic processing
+      }
+    }
+
     const formattedVulns = rawVulns.map(v => formatVulnerability(v, inputDep.version));
     totalVulns += formattedVulns.length;
 
@@ -178,7 +193,7 @@ export async function batchCheck({ dependencies }) {
       target_fix_version: targetFix,
       vulnerabilities: formattedVulns
     };
-  });
+  }));
 
   return {
     scanned_count: dependencies.length,
