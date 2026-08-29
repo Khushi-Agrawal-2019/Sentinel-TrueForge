@@ -17,6 +17,10 @@ import time
 from typing import Callable, Dict, List, Optional, Tuple
 
 from .parser import ManifestParser
+try:
+    from .sandbox_config import SandboxResourcePolicy
+except ImportError:
+    SandboxResourcePolicy = None
 
 logger = logging.getLogger("sentinelpr.sandbox")
 
@@ -231,13 +235,19 @@ class SandboxRunner:
         env["CI"] = "true"
         env["SENTINELPR_SANDBOX"] = "1"
 
+        preexec = None
+        if SandboxResourcePolicy:
+            policy = SandboxResourcePolicy()
+            preexec = policy.get_preexec_fn()
+
         proc = subprocess.Popen(
             cmd,
             cwd=str(cwd),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env
+            env=env,
+            preexec_fn=preexec
         )
 
         if self.process_register_callback:
