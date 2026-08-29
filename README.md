@@ -205,22 +205,33 @@ python3 cli/sentinelpr.py stop
 
 ---
 
-## 🔍 Qodo Review Evidence & Fix Summary
+## 🔍 Qodo Review Evidence & PR Directory
 
-SentinelPR is verified and reviewed using **Qodo** (AI-powered code review platform):
+SentinelPR's features and autonomous remediation PRs are reviewed and verified by **Qodo** (AI-powered code review platform):
 
-- **Pull Request #1:** [https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/1](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/1)
-- **Automated Qodo Trigger:** Verified automatic code review and PR summary generation upon PR opening.
-- **Qodo Commands:** Verified interactive review commands (`/agentic_review` and `/agentic_describe`).
-- **Qodo CLI Integration:** Local agentic toolbox installed via `curl -fsSL https://get.qodo.ai | sh` and linked to repository.
+| Pull Request | Type | Qodo Review Status | Link |
+| :--- | :--- | :--- | :--- |
+| **PR #4: Sandbox Resource Throttling** | `✨ Feature` | ✅ **Reviewed & Resolved** (Qodo flagged unapplied resource limits $\to$ wired up via `resource.setrlimit`) | [#4](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/4) |
+| **PR #3: Jinja2 Security Fix** | `🛡️ Remediation` | ✅ **Reviewed & Resolved** (Qodo caught CVE-2025-27516 in 3.1.5 $\to$ upgraded to 3.1.6 & fixed semver selector) | [#3](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/3) |
+| **PR #2: urllib3 Security Fix** | `🛡️ Remediation` | 🟢 **Reviewed & Merged** (0 bugs, clean passing sandbox test suite) | [#2](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/2) |
+| **PR #1: Qodo Verification Marker** | `🧪 CI/CD` | 🟢 **Reviewed & Merged** (Connection & Agentic Review Triggers Verified) | [#1](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/1) |
 
-### Qodo Review Summary
+### 🛠️ Qodo Review & Remediation Case Studies
+
+#### Case Study 1: Resolving Sandbox Resource Limits (PR #4)
 ```text
-=== Code Review by Qodo ===
-- 0 Bugs detected
-- 0 Rule violations
-- 0 Requirement gaps
-- PR Summary: Automated verification and security workflow confirmation
+=== Finding by Qodo on PR #4 ===
+- Finding: "MAX_MEMORY_LIMIT and MAX_CPU_LIMIT constants defined in config but not enforced in SandboxRunner._execute_test_process."
+- Action Taken: Implemented OS-level resource limits via `resource.setrlimit` with `preexec_fn` and Docker cgroup memory/CPU limits.
+- Follow-up: Qodo re-reviewed and marked finding as "✓ Resolved (0 bugs)".
+```
+
+#### Case Study 2: Catching Incomplete CVE Remediation (PR #3)
+```text
+=== Finding by Qodo on PR #3 ===
+- Finding: "Target remains sandbox-vulnerable (CVE-2025-27516): Jinja2 3.1.5 is still affected by attr filter sandbox breakout; 3.1.6 is the patched version."
+- Action Taken: Upgraded Jinja2 pin to 3.1.6 and enhanced SentinelPR's OSV parser with robust semver max resolution.
+- Follow-up: Qodo re-evaluated the PR commit and updated review status to "✓ Resolved (0 bugs)".
 ```
 
 ---

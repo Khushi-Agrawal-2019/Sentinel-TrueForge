@@ -12,12 +12,19 @@ class TestOSVMCPClient(unittest.TestCase):
         self.client = OSVClient()
 
     def test_single_vulnerable_package_pypi(self):
-        """Test checking jinja2 2.11.2 (known vulnerable)."""
+        """Test checking jinja2 2.11.2 (known vulnerable) resolves to 3.1.6 patch release."""
         result = self.client.check_package("jinja2", ecosystem="PyPI", version="2.11.2")
         self.assertTrue(result.vulnerable)
         self.assertGreater(result.vulnerability_count, 0)
-        self.assertIsNotNone(result.target_fix_version)
+        self.assertEqual(result.target_fix_version, "3.1.6")
         self.assertTrue(any(v.cve for v in result.vulnerabilities))
+
+    def test_semver_sorting(self):
+        """Verify _parse_semver handles mixed versions, patches, and pre-releases correctly."""
+        versions = ["2.11.3", "3.1.5", "3.1.6", "3.1.3", "3.1.4", "1.26.4", "2.5.0"]
+        sorted_vers = sorted(versions, key=self.client._parse_semver)
+        self.assertEqual(sorted_vers[-1], "3.1.6")
+        self.assertEqual(sorted_vers[0], "1.26.4")
 
     def test_single_vulnerable_package_npm(self):
         """Test checking lodash 4.17.15 (known vulnerable npm package)."""

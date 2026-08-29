@@ -8,6 +8,7 @@ Zero API keys or paid tiers required.
 from dataclasses import dataclass, field
 import json
 import logging
+import re
 from typing import Any, Dict, List, Optional
 import urllib.error
 import urllib.parse
@@ -47,6 +48,31 @@ class OSVClient:
         self.mcp_url = mcp_url
         self.api_base = api_base.rstrip("/")
 
+    @staticmethod
+    def _parse_semver(version_str: str) -> tuple:
+        """Parses a version string into a comparable tuple (major, minor, patch, pre-release)."""
+        if not version_str:
+            return (-1, 0, 0, 0, "")
+        clean_v = str(version_str).strip().lstrip("v").lstrip("V")
+        # Ignore raw git commit SHAs (hex-only strings of 32-40 chars without version dots)
+        if re.match(r"^[0-9a-fA-F]{32,40}$", clean_v):
+            return (-1, 0, 0, 0, clean_v)
+        # Standard semver: major.minor[.patch][-tag]
+        match = re.match(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[.-]?(.*))?$", clean_v)
+        if match:
+            major = int(match.group(1))
+            minor = int(match.group(2))
+            patch = int(match.group(3) or 0)
+            prerelease = match.group(4) or ""
+            pr_weight = 1 if not prerelease else 0
+            return (major, minor, patch, pr_weight, prerelease)
+        # Single number or non-standard
+        match_single = re.match(r"^(\d+)(?:[.-]?(.*))?$", clean_v)
+        if match_single:
+            major = int(match_single.group(1))
+            return (major, 0, 0, 0, match_single.group(2) or "")
+        return (-1, 0, 0, 0, clean_v)
+
     def _parse_severity(self, vuln: Dict[str, Any]) -> str:
         db_spec = vuln.get("database_specific", {})
         if "severity" in db_spec and db_spec["severity"]:
@@ -67,7 +93,7 @@ class OSVClient:
                 for ev in r.get("events", []):
                     if "fixed" in ev and ev["fixed"]:
                         fixed.add(ev["fixed"])
-        return sorted(list(fixed))
+        return sorted(list(fixed), key=self._parse_semver)
 
     def _format_vuln(self, raw: Dict[str, Any]) -> Vulnerability:
         fixed_versions = self._extract_fixed_versions(raw)
@@ -85,7 +111,7 @@ class OSVClient:
             details=raw.get("details", ""),
             severity=self._parse_severity(raw),
             fixed_versions=fixed_versions,
-            recommended_version=fixed_versions[0] if fixed_versions else None
+            recommended_version=fixed_versions[-1] if fixed_versions else None
         )
 
     def check_package(self, package_name: str, ecosystem: str = "PyPI", version: Optional[str] = None) -> PackageScanResult:
@@ -113,7 +139,7 @@ class OSVClient:
                 vulns = [self._format_vuln(v) for v in raw_vulns]
 
                 all_fixed = [fv for v in vulns for fv in v.fixed_versions if fv]
-                target_fix = all_fixed[-1] if all_fixed else None
+                target_fix = max(all_fixed, key=self._parse_semver) if all_fixed else None
 
                 return PackageScanResult(
                     package=package_name,
@@ -191,7 +217,7 @@ class OSVClient:
 
                 vulns = [self._format_vuln(v) for v in raw_vulns]
                 all_fixed = [fv for v in vulns for fv in v.fixed_versions if fv]
-                target_fix = all_fixed[-1] if all_fixed else None
+                target_fix = max(all_fixed, key=self._parse_semver) if all_fixed else None
 
                 results.append(
                     PackageScanResult(
