@@ -1,3 +1,4 @@
-# SentinelPR Orchestrator Dependencies (Zero paid dependencies)
+# SentinelPR Verified Dependencies
+jinja2==3.1.5
 requests>=2.31.0
 urllib3>=2.0.0
