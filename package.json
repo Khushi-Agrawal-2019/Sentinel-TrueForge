@@ -1,0 +1,24 @@
+{
+  "name": "sentinel-pr",
+  "version": "1.0.0",
+  "description": "Autonomous, Safe Dependency Remediation Agent built on TrueForge & verified with Qodo",
+  "main": "cli/sentinelpr.py",
+  "type": "module",
+  "scripts": {
+    "start:mcp": "node mcp-servers/osv-mcp/server.mjs",
+    "test:mcp": "node mcp-servers/osv-mcp/test_standalone.mjs",
+    "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "test": "npm run test:mcp && npm run test:python"
+  },
+  "keywords": [
+    "trueforge",
+    "qodo",
+    "security",
+    "mcp",
+    "sandbox",
+    "killswitch",
+    "vulnerability-fixer"
+  ],
+  "author": "Khushi Agrawal",
+  "license": "MIT"
+}
