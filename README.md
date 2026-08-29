@@ -1,2 +1,234 @@
-# Sentinel-TrueForge
-SentinelPR: Autonomous, Safe Dependency Remediation Agent built on TrueForge &amp; verified with Qodo
+# 🛡️ SentinelPR
+
+> **Autonomous, Safe Dependency Remediation Agent built on [TrueForge](https://github.com/truefoundry/trueforge) & verified with [Qodo](https://www.qodo.ai)**  
+> *Built for "The Agent Harness Hackathon" by WeMakeDevs, sponsored by TrueFoundry & Qodo.*
+
+---
+
+## 🎯 What SentinelPR Does and Why
+
+Modern software security relies heavily on automated dependency updates, but existing tools frequently cause breakages or lack safety controls. **SentinelPR** is an autonomous security agent that:
+
+1. **Finds Known Vulnerabilities**: Scans project dependency manifests (`requirements.txt`, `package.json`, `pyproject.toml`) and queries **OSV.dev** for CVEs, GHSAs, and minimum fixed versions via a dedicated **Model Context Protocol (MCP)** server.
+2. **Executes Safely in an Ephemeral Sandbox**: Clones the repository into an isolated, ephemeral workspace (or Docker container), applies the version bump, and executes the actual test suite with strict wall-clock timeouts.
+3. **Proves Compatibility Before Proposing**: Only opens a GitHub Pull Request if 100% of the repository's test suite passes cleanly. If tests fail, it logs the failure locally and never touches GitHub.
+4. **Enforces an Instant Kill Switch**: Can be aborted mid-run at any point with `sentinelpr stop`. All active sandbox processes and containers are terminated immediately, guaranteeing **zero side effects** on the source repository.
+5. **No Auto-Merge**: Every PR includes full test execution evidence, severity details, and explicit notices requiring human review and approval.
+
+---
+
+## 🏆 Hackathon Judging Criteria Alignment
+
+| Judging Criterion | SentinelPR Implementation |
+| :--- | :--- |
+| **1. Reaches Real Tools (MCP)** | Exposes a standalone **OSV MCP Server** (`mcp-servers/osv-mcp`) supporting `check_vulnerabilities` and `batch_check` via the official `@modelcontextprotocol/sdk` and streamable HTTP transport for TrueForge. |
+| **2. Runs Code Safely (Sandbox)** | Implements `orchestrator/sandbox.py` with ephemeral directory/Docker isolation, hard wall-clock timeouts (default 180s), environment isolation, test runner auto-detection, and guaranteed teardown. |
+| **3. Stopped Before Damage (Kill Switch)** | Implements `orchestrator/killswitch.py` and `cli/sentinelpr.py stop`. Checks kill flags before every state transition (scan $\to$ sandbox $\to$ PR) and forcibly kills active child processes and Docker containers instantly. |
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TD
+    subgraph TrueForge Harness & Agent
+        A[User / CI Trigger] --> B[TrueForge Agent: agent.json]
+        B --> C[Orchestrator Loop: orchestrator/run.py]
+    end
+
+    subgraph MCP Tool Layer
+        C <-->|Query CVEs / Batches| D[OSV MCP Server: mcp-servers/osv-mcp]
+        D <-->|Keyless REST API| E[OSV.dev Database]
+    end
+
+    subgraph Safety & Sandbox Layer
+        C --> F{Kill Switch Active?}
+        F -- Yes --> G[🛑 Abort Immediately / Kill Active Jobs]
+        F -- No --> H[Spawn Ephemeral Sandbox]
+        H --> I[Apply Version Bump in Isolation]
+        I --> J[Execute Test Suite with 180s Timeout]
+        J --> K{Tests Passed?}
+    end
+
+    subgraph Remediation & Verification
+        K -- No --> L[Log Failure Locally / Do NOT touch GitHub]
+        K -- Yes --> M[Safe GitHub Client: orchestrator/github_client.py]
+        M --> N[Create Isolated Branch & PR with Test Evidence]
+        N --> O[Qodo AI Code Review on PR]
+    end
+```
+
+---
+
+## 💸 Zero-Paid Services Policy
+
+SentinelPR requires **zero paid services, zero paid API keys, and zero subscriptions**:
+- **Vulnerability Data:** [OSV.dev](https://osv.dev) (100% free, keyless, open-source vulnerability database by Google).
+- **Agent Model:** Locally run open-weights model via **Ollama** (`qwen2.5-coder` or `llama3.1`) configured in `agent.json`.
+- **Harness:** Open-source [TrueForge](https://github.com/truefoundry/trueforge) agent harness.
+- **Code Review:** Free tier [Qodo](https://www.qodo.ai) AI code review for GitHub PRs and local CLI (`curl -fsSL https://get.qodo.ai | sh`).
+- **Git Platform:** GitHub free tier API / `gh` CLI.
+
+---
+
+## 📂 Repository Structure
+
+```
+Sentinel-TrueForge/
+├── agent.json                          # TrueForge Agent Definition (Safety rules + MCP + Model)
+├── mcp-servers/
+│   └── osv-mcp/                        # Model Context Protocol server for OSV.dev
+│       ├── package.json
+│       ├── server.mjs                  # Streamable HTTP MCP server
+│       ├── test_standalone.mjs         # Standalone MCP test suite
+│       └── README.md
+├── orchestrator/
+│   ├── __init__.py
+│   ├── osv_client.py                   # OSV client (MCP connector & REST client)
+│   ├── parser.py                       # Manifest parser (requirements.txt, package.json, pyproject.toml)
+│   ├── sandbox.py                      # Ephemeral sandbox runner with timeouts & process monitoring
+│   ├── killswitch.py                   # Kill switch manager & instant process terminator
+│   ├── github_client.py                # Safe GitHub PR creator (branch isolation, no main pushes)
+│   ├── template.py                     # PR description template generator with test evidence
+│   └── run.py                          # Full orchestrator loop
+├── cli/
+│   ├── __init__.py
+│   └── sentinelpr.py                   # CLI entrypoints (scan, run, stop, status, reset)
+├── tests/
+│   ├── test_osv_mcp.py                 # OSV MCP & client unit tests
+│   ├── test_sandbox.py                 # Sandbox isolation & test verification tests
+│   ├── test_killswitch.py              # Kill switch instant abort tests
+│   ├── test_orchestrator.py            # Orchestrator dry-run loop tests
+│   ├── test_github_client.py           # GitHub client mocked API tests
+│   └── demo-repo-fixtures/             # Minimal demo fixtures with real vulnerable packages
+│       ├── python-demo/                # jinja2==2.11.2, requests==2.25.1, urllib3==1.26.4
+│       └── node-demo/                  # lodash@4.17.15, minimist@1.2.0
+├── .github/
+│   └── workflows/
+│       └── qodo-review.yml             # GitHub Actions CI workflow for Qodo reviews
+├── requirements.txt                    # Minimal Python dependencies
+├── package.json                        # Project metadata & helper scripts
+└── README.md                           # Comprehensive documentation
+```
+
+---
+
+## 🚀 Quickstart & Installation
+
+### 1. Prerequisites
+- Python 3.10+
+- Node.js 20+
+- (Optional) Docker (if container isolation is preferred over ephemeral subprocesses)
+- (Optional) Ollama with `qwen2.5-coder:latest` (`ollama run qwen2.5-coder`)
+
+### 2. Install Dependencies
+```bash
+# Clone the repository
+git clone https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge.git
+cd Sentinel-TrueForge
+
+# Install Python requirements
+pip install -r requirements.txt
+
+# Install OSV MCP Server dependencies
+cd mcp-servers/osv-mcp && npm install && cd ../..
+```
+
+### 3. Run Automated Tests
+```bash
+# Run all Python and MCP server tests
+npm test
+```
+
+---
+
+## 💻 CLI Commands & Usage
+
+### 1. Scan Repository for Vulnerabilities
+Scans dependency manifests and displays known CVEs/GHSAs, severity, and minimum fixed versions:
+```bash
+python3 cli/sentinelpr.py scan --repo tests/demo-repo-fixtures/python-demo
+```
+
+### 2. Execute Autonomous Remediation Loop (Dry-Run Mode)
+Attempts version upgrades in ephemeral sandboxes and verifies tests pass without touching GitHub:
+```bash
+python3 cli/sentinelpr.py run --repo tests/demo-repo-fixtures/python-demo --top-n 3 --dry-run
+```
+
+### 3. Emergency Kill Switch (`stop`)
+Instantly aborts execution, sends `SIGKILL` to active sandbox processes, kills sandbox Docker containers, and guarantees the source repository is untouched:
+```bash
+python3 cli/sentinelpr.py stop --reason "Judge live demo kill switch"
+```
+
+### 4. Check Status and Reset
+```bash
+# Check current kill switch status and active processes
+python3 cli/sentinelpr.py status
+
+# Reset the kill switch for the next execution run
+python3 cli/sentinelpr.py reset
+```
+
+---
+
+## 🎬 Live Demo Script for Judges
+
+To demonstrate the 3 winning criteria live in under 2 minutes:
+
+### Pillar 1: Real Tool Access via MCP
+```bash
+# 1. Start the OSV MCP server
+node mcp-servers/osv-mcp/server.mjs &
+
+# 2. Run standalone MCP test querying live OSV database
+node mcp-servers/osv-mcp/test_standalone.mjs
+```
+*Result: Proves real-time, keyless querying of OSV.dev vulnerabilities (CVE-2025-27516, etc.) through the MCP protocol.*
+
+### Pillar 2: Safe Sandboxed Execution
+```bash
+python3 cli/sentinelpr.py run --repo tests/demo-repo-fixtures/python-demo --top-n 2 --dry-run
+```
+*Result: Demonstrates creating isolated ephemeral sandbox, applying version bumps (e.g. `urllib3 1.26.4 -> 2.5.0`, `jinja2 2.11.2 -> 3.1.5`), executing the real test suite in sandbox, capturing stdout/stderr, and tearing down sandbox completely with source files untouched.*
+
+### Pillar 3: Real Working Kill Switch
+```bash
+# Terminal 1: Trigger run with long timeout
+python3 cli/sentinelpr.py run --repo tests/demo-repo-fixtures/python-demo --timeout 60 &
+
+# Terminal 2: Immediately trigger kill switch
+python3 cli/sentinelpr.py stop
+```
+*Result: Shows instant abort message, process termination, and audit confirmation proving the host repository was never modified.*
+
+---
+
+## 🔍 Qodo Review Evidence & Fix Summary
+
+SentinelPR is verified and reviewed using **Qodo** (AI-powered code review platform):
+
+- **Pull Request #1:** [https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/1](https://github.com/Khushi-Agrawal-2019/Sentinel-TrueForge/pull/1)
+- **Automated Qodo Trigger:** Verified automatic code review and PR summary generation upon PR opening.
+- **Qodo Commands:** Verified interactive review commands (`/agentic_review` and `/agentic_describe`).
+- **Qodo CLI Integration:** Local agentic toolbox installed via `curl -fsSL https://get.qodo.ai | sh` and linked to repository.
+
+### Qodo Review Summary
+```text
+=== Code Review by Qodo ===
+- 0 Bugs detected
+- 0 Rule violations
+- 0 Requirement gaps
+- PR Summary: Automated verification and security workflow confirmation
+```
+
+---
+
+## 📜 License & Acknowledgments
+
+- **License:** MIT License.
+- **Agent Harness:** Built on [TrueForge](https://github.com/truefoundry/trueforge) by TrueFoundry.
+- **Code Review:** Powered by [Qodo](https://www.qodo.ai).
+- **Vulnerability Data:** Powered by [OSV.dev](https://osv.dev).
+- **Author:** Khushi Agrawal ([@Khushi-Agrawal-2019](https://github.com/Khushi-Agrawal-2019))

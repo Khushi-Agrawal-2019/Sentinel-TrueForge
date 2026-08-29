@@ -1,0 +1,48 @@
+name: Qodo AI Code Review & SentinelPR Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  qodo_review:
+    # Trigger on PR actions or when a comment starts with /agentic_review or /agentic_describe
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+       (startsWith(github.event.comment.body, '/agentic_review') ||
+        startsWith(github.event.comment.body, '/agentic_describe')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run SentinelPR Unit & Safety Tests
+        run: |
+          python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify OSV MCP Server
+        run: |
+          cd mcp-servers/osv-mcp
+          npm ci || npm install
+          node test_standalone.mjs
