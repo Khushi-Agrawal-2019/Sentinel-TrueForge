@@ -32,6 +32,49 @@ function parseSeverity(vuln) {
 }
 
 /**
+ * Parses semver string into comparable tuple.
+ */
+function parseSemver(v) {
+  if (!v) return [-1, 0, 0, 0, ""];
+  const clean = String(v).trim().replace(/^v/i, "");
+  // Ignore raw git commit SHAs (hex-only strings of 32-40 chars without version dots)
+  if (/^[0-9a-fA-F]{32,40}$/.test(clean)) {
+    return [-1, 0, 0, 0, clean];
+  }
+  // Standard semver: major.minor[.patch][-tag]
+  const match = clean.match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:[.-]?(.*))?$/);
+  if (match) {
+    const major = parseInt(match[1], 10);
+    const minor = parseInt(match[2], 10);
+    const patch = parseInt(match[3] || "0", 10);
+    const prerelease = match[4] || "";
+    const prWeight = prerelease ? 0 : 1;
+    return [major, minor, patch, prWeight, prerelease];
+  }
+  const matchSingle = clean.match(/^(\d+)(?:[.-]?(.*))?$/);
+  if (matchSingle) {
+    const major = parseInt(matchSingle[1], 10);
+    return [major, 0, 0, 0, matchSingle[2] || ""];
+  }
+  return [-1, 0, 0, 0, clean];
+}
+
+/**
+ * Compares two semantic version strings.
+ */
+function compareSemver(a, b) {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const va = pa[i] !== undefined ? pa[i] : 0;
+    const vb = pb[i] !== undefined ? pb[i] : 0;
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+  }
+  return 0;
+}
+
+/**
  * Extracts minimum fixed versions from affected ranges.
  */
 function extractFixedVersions(vuln, currentVersion) {
@@ -50,10 +93,10 @@ function extractFixedVersions(vuln, currentVersion) {
     }
   }
 
-  const sortedFixed = Array.from(fixedVersions);
+  const sortedFixed = Array.from(fixedVersions).sort(compareSemver);
   return {
     fixed_versions: sortedFixed,
-    recommended_version: sortedFixed.length > 0 ? sortedFixed[0] : null
+    recommended_version: sortedFixed.length > 0 ? sortedFixed[sortedFixed.length - 1] : null
   };
 }
 
@@ -113,7 +156,7 @@ export async function checkVulnerabilities({ package_name, ecosystem = "PyPI", v
   const formattedVulns = rawVulns.map(v => formatVulnerability(v, version));
 
   // Determine highest recommended fixed version across all discovered vulns
-  const allFixed = formattedVulns.flatMap(v => v.fixed_versions).filter(Boolean);
+  const allFixed = formattedVulns.flatMap(v => v.fixed_versions).filter(Boolean).sort(compareSemver);
   const targetFix = allFixed.length > 0 ? allFixed[allFixed.length - 1] : null;
 
   return {
@@ -180,7 +223,7 @@ export async function batchCheck({ dependencies }) {
     const formattedVulns = rawVulns.map(v => formatVulnerability(v, inputDep.version));
     totalVulns += formattedVulns.length;
 
-    const allFixed = formattedVulns.flatMap(v => v.fixed_versions).filter(Boolean);
+    const allFixed = formattedVulns.flatMap(v => v.fixed_versions).filter(Boolean).sort(compareSemver);
     const targetFix = allFixed.length > 0 ? allFixed[allFixed.length - 1] : null;
 
     return {
