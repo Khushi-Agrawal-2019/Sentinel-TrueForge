@@ -59,7 +59,11 @@ class Orchestrator:
         self.timeout = timeout
         self.dry_run = dry_run
         self.github_repo = github_repo
-        self.github_client = github_client
+        if not self.dry_run and github_client is None:
+            from .github_client import GitHubClient
+            self.github_client = GitHubClient(repo=self.github_repo)
+        else:
+            self.github_client = github_client
 
         self.killswitch = KillSwitch(workspace_root=self.repo_path)
         self.osv = OSVClient()
