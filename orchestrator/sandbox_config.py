@@ -25,14 +25,23 @@ class SandboxResourcePolicy:
     def get_preexec_fn(self) -> Optional[Callable[[], None]]:
         """Returns a preexec function to enforce OS-level resource limits on POSIX."""
         def set_limits():
+            # CPU time limit (soft limit, hard limit with grace period)
             try:
-                # Set Address Space (Virtual Memory) limit
-                resource.setrlimit(resource.RLIMIT_AS, (self.max_memory_bytes, self.max_memory_bytes))
+                if hasattr(resource, 'RLIMIT_CPU'):
+                    resource.setrlimit(resource.RLIMIT_CPU, (self.max_cpu_seconds, self.max_cpu_seconds + 5))
             except (ValueError, OSError):
                 pass
+            # Data segment memory limit
             try:
-                # Set CPU Time limit
-                resource.setrlimit(resource.RLIMIT_CPU, (self.max_cpu_seconds, self.max_cpu_seconds + 5))
+                if hasattr(resource, 'RLIMIT_DATA'):
+                    resource.setrlimit(resource.RLIMIT_DATA, (self.max_memory_bytes, self.max_memory_bytes))
+            except (ValueError, OSError):
+                pass
+            # Virtual address space ceiling: 2GB baseline for 64-bit Python/libc runtime mmap
+            try:
+                if hasattr(resource, 'RLIMIT_AS'):
+                    max_as = max(self.max_memory_bytes * 4, 2 * 1024 * 1024 * 1024)
+                    resource.setrlimit(resource.RLIMIT_AS, (max_as, max_as))
             except (ValueError, OSError):
                 pass
         return set_limits
