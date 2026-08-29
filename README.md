@@ -1,7 +1,7 @@
 # 🛡️ SentinelPR
 
 > **Autonomous, Safe Dependency Remediation Agent built on [TrueForge](https://github.com/truefoundry/trueforge) & verified with [Qodo](https://www.qodo.ai)**  
-> *Built for "The Agent Harness Hackathon" by WeMakeDevs, sponsored by TrueFoundry & Qodo.*
+> *Built for "The Agent Harness Hackathon" by WeMakeDevs*
 
 ---
 
@@ -17,9 +17,7 @@ Modern software security relies heavily on automated dependency updates, but exi
 
 ---
 
-## 🏆 Hackathon Judging Criteria Alignment
-
-| Judging Criterion | SentinelPR Implementation |
+| Flow | SentinelPR Implementation |
 | :--- | :--- |
 | **1. Reaches Real Tools (MCP)** | Exposes a standalone **OSV MCP Server** (`mcp-servers/osv-mcp`) supporting `check_vulnerabilities` and `batch_check` via the official `@modelcontextprotocol/sdk` and streamable HTTP transport for TrueForge. |
 | **2. Runs Code Safely (Sandbox)** | Implements `orchestrator/sandbox.py` with ephemeral directory/Docker isolation, hard wall-clock timeouts (default 180s), environment isolation, test runner auto-detection, and guaranteed teardown. |
@@ -57,17 +55,6 @@ flowchart TD
         N --> O[Qodo AI Code Review on PR]
     end
 ```
-
----
-
-## 💸 Zero-Paid Services Policy
-
-SentinelPR requires **zero paid services, zero paid API keys, and zero subscriptions**:
-- **Vulnerability Data:** [OSV.dev](https://osv.dev) (100% free, keyless, open-source vulnerability database by Google).
-- **Agent Model:** Locally run open-weights model via **Ollama** (`qwen2.5-coder` or `llama3.1`) configured in `agent.json`.
-- **Harness:** Open-source [TrueForge](https://github.com/truefoundry/trueforge) agent harness.
-- **Code Review:** Free tier [Qodo](https://www.qodo.ai) AI code review for GitHub PRs and local CLI (`curl -fsSL https://get.qodo.ai | sh`).
-- **Git Platform:** GitHub free tier API / `gh` CLI.
 
 ---
 
@@ -173,38 +160,6 @@ python3 cli/sentinelpr.py reset
 
 ---
 
-## 🎬 Live Demo Script for Judges
-
-To demonstrate the 3 winning criteria live in under 2 minutes:
-
-### Pillar 1: Real Tool Access via MCP
-```bash
-# 1. Start the OSV MCP server
-node mcp-servers/osv-mcp/server.mjs &
-
-# 2. Run standalone MCP test querying live OSV database
-node mcp-servers/osv-mcp/test_standalone.mjs
-```
-*Result: Proves real-time, keyless querying of OSV.dev vulnerabilities (CVE-2025-27516, etc.) through the MCP protocol.*
-
-### Pillar 2: Safe Sandboxed Execution
-```bash
-python3 cli/sentinelpr.py run --repo tests/demo-repo-fixtures/python-demo --top-n 2 --dry-run
-```
-*Result: Demonstrates creating isolated ephemeral sandbox, applying version bumps (e.g. `urllib3 1.26.4 -> 2.5.0`, `jinja2 2.11.2 -> 3.1.5`), executing the real test suite in sandbox, capturing stdout/stderr, and tearing down sandbox completely with source files untouched.*
-
-### Pillar 3: Real Working Kill Switch
-```bash
-# Terminal 1: Trigger run with long timeout
-python3 cli/sentinelpr.py run --repo tests/demo-repo-fixtures/python-demo --timeout 60 &
-
-# Terminal 2: Immediately trigger kill switch
-python3 cli/sentinelpr.py stop
-```
-*Result: Shows instant abort message, process termination, and audit confirmation proving the host repository was never modified.*
-
----
-
 ## 🔍 Qodo Review Evidence & PR Directory
 
 SentinelPR's features and autonomous remediation PRs are reviewed and verified by **Qodo** (AI-powered code review platform):
@@ -238,7 +193,6 @@ SentinelPR's features and autonomous remediation PRs are reviewed and verified b
 
 ## 📜 License & Acknowledgments
 
-- **License:** MIT License.
 - **Agent Harness:** Built on [TrueForge](https://github.com/truefoundry/trueforge) by TrueFoundry.
 - **Code Review:** Powered by [Qodo](https://www.qodo.ai).
 - **Vulnerability Data:** Powered by [OSV.dev](https://osv.dev).
