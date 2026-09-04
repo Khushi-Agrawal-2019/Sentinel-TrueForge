@@ -1,7 +1,7 @@
 # 🛡️ SentinelPR
 
 > **Autonomous, Safe Dependency Remediation Agent built on [TrueForge](https://github.com/truefoundry/trueforge) & verified with [Qodo](https://www.qodo.ai)**  
-> *Built for "The Agent Harness Hackathon" by WeMakeDevs*
+
 
 ---
 
